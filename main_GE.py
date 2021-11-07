@@ -151,7 +151,17 @@ def main():
             best_epoch = epoch
             print('Best var_err1 {}'.format(best_err1))
 
-        model_filename = 'checkpoint_%03d.pth.tar' % epoch
+        if epoch >= args.epochs - 10:
+            model_filename = 'checkpoint_%03d.pth.tar' % epoch
+            save_checkpoint({
+                'epoch': epoch,
+                'arch': args.arch,
+                'state_dict': model.state_dict(),
+                'best_err1': best_err1,
+                'optimizer': optimizer.state_dict(),
+            }, args, is_best, model_filename, scores)
+
+        model_filename = 'checkpoint.pth.tar'
         save_checkpoint({
             'epoch': epoch,
             'arch': args.arch,
@@ -187,7 +197,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
+        target = target.cuda()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
@@ -244,7 +254,7 @@ def validate(val_loader, model, criterion):
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
-            target = target.cuda(async=True)
+            target = target.cuda()
             input = input.cuda()
 
             input_var = torch.autograd.Variable(input)
@@ -253,14 +263,13 @@ def validate(val_loader, model, criterion):
             data_time.update(time.time() - end)
 
             # compute output
-            output = model(input_var)
-            if not isinstance(output, list):
-                output = [output]
+            output, _ = model(input_var)
+            # if not isinstance(output, list):
+            #     output = [output]
 
             loss = 0.0
             for j in range(len(output)):
                 loss += criterion(output[j], target_var)
-
             # measure error and record loss
             losses.update(loss.item(), input.size(0))
 
@@ -351,20 +360,20 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 def accuracy(output, target, topk=(1,)):
-    """Computes the error@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
 
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        # res.append(100.0 - correct_k.mul_(100.0 / batch_size))
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+        res = []
+        for k in topk:
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
 
 def adjust_learning_rate(optimizer, epoch, args, batch=None,
                          nBatch=None, method='multistep'):

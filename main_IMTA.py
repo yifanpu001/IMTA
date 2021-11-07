@@ -183,7 +183,7 @@ def train(train_loader, model, kd_loss, optimizer, epoch):
 
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
+        target = target.cuda()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
@@ -236,7 +236,7 @@ def validate(val_loader, model, kd_loss):
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
-            target = target.cuda(async=True)
+            target = target.cuda()
             input = input.cuda()
 
             input_var = torch.autograd.Variable(input)
@@ -340,21 +340,22 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+
 def accuracy(output, target, topk=(1,)):
-    """Computes the error@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
 
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        # res.append(100.0 - correct_k.mul_(100.0 / batch_size))
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+        res = []
+        for k in topk:
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
 
 def adjust_learning_rate(optimizer, epoch, args, batch=None,
                          nBatch=None, method='multistep'):
