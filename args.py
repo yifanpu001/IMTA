@@ -5,7 +5,7 @@ import argparse
 
 # model_names = list(map(lambda n: os.path.basename(n)[:-3],
 #                        glob.glob('models/[A-Za-z]*.py')))
-model_names = ['msdnet', 'msdnet_ge', 'IMTA_MSDNet', 'mobilenet_imagenet']
+model_names = ['msdnet', 'msdnet_ge', 'IMTA_MSDNet', 'mobilenet_imagenet', 'msdnet_ge_isc']
 
 arg_parser = argparse.ArgumentParser(
                 description='Image classification PK main script')
